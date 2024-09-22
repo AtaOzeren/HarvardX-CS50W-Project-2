@@ -4,13 +4,113 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 
-from .models import User
+from .models import User, Category, Listing, Comment 
 
+def listing(request, id):
+    listingData = Listing.objects.get(pk=id)   
+    isListingWatchlist = request.user in listingData.watchlist.all()
+    
+    # Yorumları 'allComments' adıyla template'e gönderelim
+    allComments = Comment.objects.filter(listing=listingData)
+    
+    return render(request, "auctions/listing.html", {
+        "listing": listingData,
+        "isListingInWatchList": isListingWatchlist,
+        "allComments": allComments,  # Template ile uyumlu hale getirildi
+    })
 
+def addComment(request, id):
+    currentUser = request.user
+    listingData = Listing.objects.get(pk=id)
+    message = request.POST['newComment']
+    
+    newComment = Comment(
+        author = currentUser,
+        listing = listingData, 
+        message = message,
+    )
+    newComment.save() 
+    return HttpResponseRedirect(reverse("listing", args=(id,)))
+
+def displayWatchlist(request):
+    currentUser = request.user
+    listings = currentUser.listingWatchlist.all()
+    return render(request, "auctions/watchlist.html", {
+        "listings": listings
+    })
+
+def removeWatchlist(request, id):
+    listingData = Listing.objects.get(pk=id)
+    currentUser = request.user
+    listingData.watchlist.remove(currentUser)
+    return HttpResponseRedirect(reverse("listing", args=(id,)))
+
+def addWatchlist(request, id):
+    listingData = Listing.objects.get(pk=id)
+    currentUser = request.user
+    listingData.watchlist.add(currentUser)
+    return HttpResponseRedirect(reverse("listing", args=(id,))) 
+    
 def index(request):
-    return render(request, "auctions/index.html")
+    activeListings = Listing.objects.filter(isActiv=True)
+    allCategories = Category.objects.all()
+    return render(request, "auctions/index.html",{
+        "listings": activeListings,
+        "categories": allCategories,
+    })
 
+def displayCategory (request):
+    if request.method == "POST":
+        categoryFromForm = request.POST['category']
+        category = Category.objects.get(categoryName= categoryFromForm)
+        activeListings = Listing.objects.filter(isActiv=True, category=category)
+        allCategories = Category.objects.all()
+        return render(request, "auctions/index.html",{
+            "listings": activeListings,
+            "categories": allCategories,
+    })
 
+def createListing(request):
+    if request.method == "GET":
+        allCategories = Category.objects.all()
+        return render(request, "auctions/create.html", {
+            "categories": allCategories
+        })
+    else:
+        title = request.POST.get("title")
+        description = request.POST.get("description")
+        imageUrl = request.POST.get("imageurl")
+        price = float(request.POST.get("price")) 
+        category = request.POST.get("category")
+
+        currentUser = request.user
+
+        # Creating a new ad and catching errors
+        try:
+            categoryData = Category.objects.get(categoryName=category)
+        except Category.DoesNotExist:
+            return render(request, "auctions/create.html", {
+                "message": "Selected category does not exist.",
+                "categories": Category.objects.all()
+            })
+
+        # Creating a new ad and catching errors
+        try:
+            newListing = Listing(
+                title=title,
+                description=description,
+                imageUrl=imageUrl,
+                price=price,
+                owner=currentUser,
+                category=categoryData,
+            )
+            newListing.save()
+            return HttpResponseRedirect(reverse("index"))
+        except Exception as e:
+            return render(request, "auctions/create.html", {
+                "message": f"Error saving listing: {e}",
+                "categories": Category.objects.all()
+            })
 def login_view(request):
     if request.method == "POST":
 
