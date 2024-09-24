@@ -1,46 +1,146 @@
 {% extends "auctions/layout.html" %} {% block body %}
+<div class="container mt-4">
+  <!-- Success or error message -->
+  {% if message %}
+  <div
+    class="alert alert-{% if update %}success{% else %}danger{% endif %} alert-dismissible fade show"
+    role="alert"
+  >
+    {{ message }}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
+  {% endif %}
 
-<div class="row mx-3">
-  {% if user.is_authenticated %} {% if isListingInWatchList %}
-  <form action="{% url 'removeWatchlist' id=listing.id %}" method="POST">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-danger">Remove From Watchlist
-  </form>
-  {% else %}
-  <form action="{% url 'addWatchlist' id=listing.id %}" method="POST">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-success">Add To Watchlist
-  </form>
-  {%endif%} {%endif%}
-</div>
+  <!-- Display if user won the auction -->
+  {% if not listing.isActive and user == listing.price.user %}
+  <div class="alert alert-success mt-3" role="alert">
+    🎉 You Won the Auction!
+  </div>
+  {% endif %}
 
-<h2>{{ listing.title}}</h2>
-<img src="{{ listing.imageUrl }}" alt="{{ listing.title}}" />
-<p>Detail: {{listing.description}}</p>
-<p>Owner: {{listing.owner}}</p>
-<h4>${{listing.price}}</h4>
-
-  <h2>Comments</h2>
-  {% if user.is_authenticated %}
-    <form action="{% url 'addComment' id=listing.id %}" method="POST">
+  <!-- Auction details and actions -->
+  <div class="row my-4">
+    {% if user.is_authenticated %}
+    <!-- Close auction button for owner -->
+    {% if isOwner %}
+    <form
+      action="{% url 'closeAuction' id=listing.id %}"
+      method="POST"
+      class="d-inline"
+    >
       {% csrf_token %}
-      <div class="mb-3">
-        <div class="form-group">
-        <label for="price" class="form-label">Add Comment</label>  
-        <input type="text" name="newComment" placehold="Add New Comment">
-        <button type="submit" class="btn btn-success">Comment</button>
-      </div>
+      <button type="submit" class="btn btn-danger mb-2">Close Auction</button>
     </form>
     {% endif %}
-    <br/>
-    <ul class= "list-group">
-      {% for comment in allComments %}
+
+    <!-- Watchlist buttons -->
+    {% if isListingInWatchList %}
+    <form
+      action="{% url 'removeWatchlist' id=listing.id %}"
+      method="POST"
+      class="d-inline"
+    >
+      {% csrf_token %}
+      <button type="submit" class="btn btn-warning mb-2">
+        Remove from Watchlist
+      </button>
+    </form>
+    {% else %}
+    <form
+      action="{% url 'addWatchlist' id=listing.id %}"
+      method="POST"
+      class="d-inline"
+    >
+      {% csrf_token %}
+      <button type="submit" class="btn btn-success mb-2">
+        Add to Watchlist
+      </button>
+    </form>
+    {% endif %} {% endif %}
+  </div>
+
+  <!-- Auction listing details -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h2 class="card-title">{{ listing.title }}</h2>
+      <img
+        src="{{ listing.imageUrl }}"
+        alt="{{ listing.title }}"
+        class="img-fluid mb-3 rounded"
+      />
+      <p><strong>Description:</strong> {{ listing.description }}</p>
+      <p><strong>Owner:</strong> {{ listing.owner }}</p>
+      <h4 class="text-success">${{ listing.price.bid }}</h4>
+
+      <!-- Add new bid form -->
+      {% if user.is_authenticated %}
+      <form
+        action="{% url 'addBid' id=listing.id %}"
+        method="POST"
+        class="form-inline"
+      >
+        {% csrf_token %}
+        <div class="input-group mb-3">
+          <label for="newBid" class="sr-only">Add Bid</label>
+          <input
+            type="number"
+            min="0"
+            name="newBid"
+            id="newBid"
+            class="form-control"
+            placeholder="Enter your bid"
+            aria-label="New Bid"
+          />
+          <div class="input-group-append">
+            <button type="submit" class="btn btn-primary">Place Bid</button>
+          </div>
+        </div>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Comments Section -->
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h3 class="card-title">Comments</h3>
+
+      <!-- Add new comment form -->
+      {% if user.is_authenticated %}
+      <form
+        action="{% url 'addComment' id=listing.id %}"
+        method="POST"
+        class="mb-4"
+      >
+        {% csrf_token %}
+        <div class="form-group">
+          <label for="newComment">Add Comment</label>
+          <input
+            type="text"
+            name="newComment"
+            id="newComment"
+            class="form-control"
+            placeholder="Write a comment"
+          />
+        </div>
+        <button type="submit" class="btn btn-success mt-2">Submit</button>
+      </form>
+      {% endif %}
+
+      <!-- Display comments -->
+      <ul class="list-group">
+        {% for comment in allComments %}
         <li class="list-group-item">
-          {{ comment.message }}
-          <p>Posted by <strong>{{ comment.author }}</strong> </p>
+          <p class="mb-1">{{ comment.message }}</p>
+          <small class="text-muted"
+            >Posted by <strong>{{ comment.author }}</strong></small
+          >
         </li>
-      {% endfor %}
-  </ul>
-
-
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
 {% endblock %}

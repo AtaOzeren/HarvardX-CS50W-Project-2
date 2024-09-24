@@ -3,21 +3,67 @@ from django.db import IntegrityError
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
-
-from .models import User, Category, Listing, Comment 
+from .models import User, Category, Listing, Comment, Bid
 
 def listing(request, id):
     listingData = Listing.objects.get(pk=id)   
     isListingWatchlist = request.user in listingData.watchlist.all()
-    
-    # Yorumları 'allComments' adıyla template'e gönderelim
     allComments = Comment.objects.filter(listing=listingData)
+    isOwner = request.user.username == listingData.owner.username
     
     return render(request, "auctions/listing.html", {
         "listing": listingData,
         "isListingInWatchList": isListingWatchlist,
-        "allComments": allComments,  # Template ile uyumlu hale getirildi
+        "allComments": allComments,
+        "isOwner": isOwner
     })
+
+def closeAuction(request,id):
+    listingData = Listing.objects.get(pk=id)
+    # DIkkat et 
+    listingData.isActive = True 
+    listingData.save()
+    isOwner = request.user.username == listingData.owner.username
+    allComments = Comment.objects.filter(listing=listingData)
+    isListingWatchlist = request.user in listingData.watchlist.all()
+    return render(request, "auctions/listing.html", {
+        "listing": listingData,
+        "isListingInWatchList": isListingWatchlist,
+        "allComments": allComments,
+        "isOwner": isOwner,
+        "message": "Your auction is closed",
+        "update": True,
+    })
+
+
+def addBid(request, id):
+    newBid = request.POST["newBid"]
+    listingData = Listing.objects.get(pk=id)
+    isListingWatchlist = request.user in listingData.watchlist.all()
+    allComments = Comment.objects.filter(listing=listingData)
+    isOwner = request.user.username == listingData.owner.username
+    if int (newBid) > listingData.price.bid:
+        updateBid = Bid(user=request.user, bid=int(newBid))
+        updateBid.save()
+        listingData.price.bid = newBid
+        listingData.save()
+        return render(request, "auctions/listing.html", {
+            "listing": listingData,
+            "message": "Bid Successful",
+            "update": True,
+            "isListingInWatchList": isListingWatchlist,
+            "allComments": allComments,  
+            "isOwner": isOwner,
+        })
+    else:
+        return render(request, "auctions/listing.html", {
+            "listing": listingData,
+            "message": "Bid Failed",
+            "update": False,
+            "isListingInWatchList": isListingWatchlist,
+            "allComments": allComments, 
+            "isOwner": isOwner, 
+        })
 
 def addComment(request, id):
     currentUser = request.user
@@ -30,7 +76,7 @@ def addComment(request, id):
         message = message,
     )
     newComment.save() 
-    return HttpResponseRedirect(reverse("listing", args=(id,)))
+    return HttpResponseRedirect(reverse("listing", args=(id, )))
 
 def displayWatchlist(request):
     currentUser = request.user
@@ -43,13 +89,13 @@ def removeWatchlist(request, id):
     listingData = Listing.objects.get(pk=id)
     currentUser = request.user
     listingData.watchlist.remove(currentUser)
-    return HttpResponseRedirect(reverse("listing", args=(id,)))
+    return HttpResponseRedirect(reverse("listing", args=(id, )))
 
 def addWatchlist(request, id):
     listingData = Listing.objects.get(pk=id)
     currentUser = request.user
     listingData.watchlist.add(currentUser)
-    return HttpResponseRedirect(reverse("listing", args=(id,))) 
+    return HttpResponseRedirect(reverse("listing", args=(id, ))) 
     
 def index(request):
     activeListings = Listing.objects.filter(isActiv=True)
@@ -85,6 +131,8 @@ def createListing(request):
 
         currentUser = request.user
 
+        bid=Bid(bid=float(price),user=currentUser)
+        bid.save()
         # Creating a new ad and catching errors
         try:
             categoryData = Category.objects.get(categoryName=category)
@@ -100,7 +148,7 @@ def createListing(request):
                 title=title,
                 description=description,
                 imageUrl=imageUrl,
-                price=price,
+                price=bid,
                 owner=currentUser,
                 category=categoryData,
             )
