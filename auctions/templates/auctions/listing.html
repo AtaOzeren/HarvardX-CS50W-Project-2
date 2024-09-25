@@ -11,20 +11,14 @@
       <span aria-hidden="true">&times;</span>
     </button>
   </div>
-  {% endif %}
-
-  <!-- Display if user won the auction -->
-  {% if not listing.isActive and user == listing.price.user %}
+  {% endif %} {% if not listing.isActive and user == listing.price.user %}
   <div class="alert alert-success mt-3" role="alert">
     🎉 You Won the Auction!
   </div>
   {% endif %}
 
-  <!-- Auction details and actions -->
   <div class="row my-4">
-    {% if user.is_authenticated %}
-    <!-- Close auction button for owner -->
-    {% if isOwner %}
+    {% if user.is_authenticated %} {% if isOwner %}
     <form
       action="{% url 'closeAuction' id=listing.id %}"
       method="POST"
@@ -33,10 +27,7 @@
       {% csrf_token %}
       <button type="submit" class="btn btn-danger mb-2">Close Auction</button>
     </form>
-    {% endif %}
-
-    <!-- Watchlist buttons -->
-    {% if isListingInWatchList %}
+    {% endif %} {% if isListingInWatchList %}
     <form
       action="{% url 'removeWatchlist' id=listing.id %}"
       method="POST"
@@ -61,7 +52,6 @@
     {% endif %} {% endif %}
   </div>
 
-  <!-- Auction listing details -->
   <div class="card shadow-sm mb-4">
     <div class="card-body">
       <h2 class="card-title">{{ listing.title }}</h2>
@@ -74,7 +64,6 @@
       <p><strong>Owner:</strong> {{ listing.owner }}</p>
       <h4 class="text-success">${{ listing.price.bid }}</h4>
 
-      <!-- Add new bid form -->
       {% if user.is_authenticated %}
       <form
         action="{% url 'addBid' id=listing.id %}"
@@ -102,12 +91,10 @@
     </div>
   </div>
 
-  <!-- Comments Section -->
   <div class="card shadow-sm">
     <div class="card-body">
       <h3 class="card-title">Comments</h3>
 
-      <!-- Add new comment form -->
       {% if user.is_authenticated %}
       <form
         action="{% url 'addComment' id=listing.id %}"
@@ -129,7 +116,6 @@
       </form>
       {% endif %}
 
-      <!-- Display comments -->
       <ul class="list-group">
         {% for comment in allComments %}
         <li class="list-group-item">
