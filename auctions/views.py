@@ -1,211 +1,190 @@
 from django.contrib.auth import authenticate, login, logout
 from django.db import IntegrityError
-from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import render
+from django.http import HttpResponseRedirect
+from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from .models import User, Category, Listing, Comment, Bid
 
 def listing(request, id):
-    listingData = Listing.objects.get(pk=id)   
-    isListingWatchlist = request.user in listingData.watchlist.all()
-    allComments = Comment.objects.filter(listing=listingData)
-    isOwner = request.user.username == listingData.owner.username
-    
-    return render(request, "auctions/listing.html", {
-        "listing": listingData,
-        "isListingInWatchList": isListingWatchlist,
-        "allComments": allComments,
-        "isOwner": isOwner
-    })
+    listing_data = get_object_or_404(Listing, pk=id)
+    is_listing_watchlist = request.user in listing_data.watchlist.all()
+    all_comments = Comment.objects.filter(listing=listing_data)
+    is_owner = request.user == listing_data.owner
 
-def closeAuction(request,id):
-    listingData = Listing.objects.get(pk=id)
-    # DIkkat et 
-    listingData.isActive = True 
-    listingData.save()
-    isOwner = request.user.username == listingData.owner.username
-    allComments = Comment.objects.filter(listing=listingData)
-    isListingWatchlist = request.user in listingData.watchlist.all()
-    return render(request, "auctions/listing.html", {
-        "listing": listingData,
-        "isListingInWatchList": isListingWatchlist,
-        "allComments": allComments,
-        "isOwner": isOwner,
+    context = {
+        "listing": listing_data,
+        "isListingInWatchList": is_listing_watchlist,
+        "allComments": all_comments,
+        "isOwner": is_owner
+    }
+    return render(request, "auctions/listing.html", context)
+
+def close_auction(request, id):
+    listing_data = get_object_or_404(Listing, pk=id)
+
+    if request.user != listing_data.owner:
+        return HttpResponseRedirect(reverse("listing", args=[id]))
+
+    listing_data.isActive = False  # Açık artırma kapatıldı
+    listing_data.save()
+
+    context = {
+        "listing": listing_data,
+        "isListingInWatchList": request.user in listing_data.watchlist.all(),
+        "allComments": Comment.objects.filter(listing=listing_data),
+        "isOwner": True,
         "message": "Your auction is closed",
-        "update": True,
-    })
+        "update": True
+    }
+    return render(request, "auctions/listing.html", context)
 
+def add_bid(request, id):
+    listing_data = get_object_or_404(Listing, pk=id)
+    new_bid = int(request.POST.get("newBid", 0))
 
-def addBid(request, id):
-    newBid = request.POST["newBid"]
-    listingData = Listing.objects.get(pk=id)
-    isListingWatchlist = request.user in listingData.watchlist.all()
-    allComments = Comment.objects.filter(listing=listingData)
-    isOwner = request.user.username == listingData.owner.username
-    if int (newBid) > listingData.price.bid:
-        updateBid = Bid(user=request.user, bid=int(newBid))
-        updateBid.save()
-        listingData.price.bid = newBid
-        listingData.save()
-        return render(request, "auctions/listing.html", {
-            "listing": listingData,
-            "message": "Bid Successful",
-            "update": True,
-            "isListingInWatchList": isListingWatchlist,
-            "allComments": allComments,  
-            "isOwner": isOwner,
-        })
+    if new_bid <= listing_data.price.bid:
+        message = "Bid Failed"
+        update = False
     else:
-        return render(request, "auctions/listing.html", {
-            "listing": listingData,
-            "message": "Bid Failed",
-            "update": False,
-            "isListingInWatchList": isListingWatchlist,
-            "allComments": allComments, 
-            "isOwner": isOwner, 
-        })
+        Bid.objects.create(user=request.user, bid=new_bid)
+        listing_data.price.bid = new_bid
+        listing_data.save()
+        message = "Bid Successful"
+        update = True
 
-def addComment(request, id):
-    currentUser = request.user
-    listingData = Listing.objects.get(pk=id)
-    message = request.POST['newComment']
-    
-    newComment = Comment(
-        author = currentUser,
-        listing = listingData, 
-        message = message,
-    )
-    newComment.save() 
-    return HttpResponseRedirect(reverse("listing", args=(id, )))
+    context = {
+        "listing": listing_data,
+        "message": message,
+        "update": update,
+        "isListingInWatchList": request.user in listing_data.watchlist.all(),
+        "allComments": Comment.objects.filter(listing=listing_data),
+        "isOwner": request.user == listing_data.owner,
+    }
+    return render(request, "auctions/listing.html", context)
 
-def displayWatchlist(request):
-    currentUser = request.user
-    listings = currentUser.listingWatchlist.all()
-    return render(request, "auctions/watchlist.html", {
-        "listings": listings
-    })
+def add_comment(request, id):
+    listing_data = get_object_or_404(Listing, pk=id)
+    message = request.POST.get("newComment", "")
 
-def removeWatchlist(request, id):
-    listingData = Listing.objects.get(pk=id)
-    currentUser = request.user
-    listingData.watchlist.remove(currentUser)
-    return HttpResponseRedirect(reverse("listing", args=(id, )))
+    if message:
+        Comment.objects.create(author=request.user, listing=listing_data, message=message)
 
-def addWatchlist(request, id):
-    listingData = Listing.objects.get(pk=id)
-    currentUser = request.user
-    listingData.watchlist.add(currentUser)
-    return HttpResponseRedirect(reverse("listing", args=(id, ))) 
-    
+    return HttpResponseRedirect(reverse("listing", args=[id]))
+
+def display_watchlist(request):
+    current_user = request.user
+    listings = current_user.listingWatchlist.all()
+
+    return render(request, "auctions/watchlist.html", {"listings": listings})
+
+def add_watchlist(request, id):
+    listing_data = get_object_or_404(Listing, pk=id)
+    current_user = request.user
+
+    listing_data.watchlist.add(current_user)
+    return HttpResponseRedirect(reverse("listing", args=[id]))
+
+def remove_watchlist(request, id):
+    listing_data = get_object_or_404(Listing, pk=id)
+    current_user = request.user
+
+    listing_data.watchlist.remove(current_user)
+    return HttpResponseRedirect(reverse("listing", args=[id]))
+
 def index(request):
-    activeListings = Listing.objects.filter(isActiv=True)
-    allCategories = Category.objects.all()
-    return render(request, "auctions/index.html",{
-        "listings": activeListings,
-        "categories": allCategories,
-    })
+    active_listings = Listing.objects.filter(isActive=True)
+    categories = Category.objects.all()
 
-def displayCategory (request):
+    context = {
+        "listings": active_listings,
+        "categories": categories,
+    }
+    return render(request, "auctions/index.html", context)
+
+def display_category(request):
     if request.method == "POST":
-        categoryFromForm = request.POST['category']
-        category = Category.objects.get(categoryName= categoryFromForm)
-        activeListings = Listing.objects.filter(isActiv=True, category=category)
-        allCategories = Category.objects.all()
-        return render(request, "auctions/index.html",{
-            "listings": activeListings,
-            "categories": allCategories,
-    })
+        category_name = request.POST.get("category", "")
+        category = get_object_or_404(Category, categoryName=category_name)
+        active_listings = Listing.objects.filter(isActive=True, category=category)
+        categories = Category.objects.all()
 
-def createListing(request):
+        context = {
+            "listings": active_listings,
+            "categories": categories
+        }
+        return render(request, "auctions/index.html", context)
+
+def create_listing(request):
     if request.method == "GET":
-        allCategories = Category.objects.all()
+        categories = Category.objects.all()
+        return render(request, "auctions/create.html", {"categories": categories})
+
+    title = request.POST.get("title", "")
+    description = request.POST.get("description", "")
+    image_url = request.POST.get("imageurl", "")
+    price = float(request.POST.get("price", 0))
+    category_name = request.POST.get("category", "")
+
+    current_user = request.user
+    bid = Bid.objects.create(bid=price, user=current_user)
+
+    try:
+        category_data = Category.objects.get(categoryName=category_name)
+        new_listing = Listing.objects.create(
+            title=title,
+            description=description,
+            imageUrl=image_url,
+            price=bid,
+            owner=current_user,
+            category=category_data,
+        )
+        return HttpResponseRedirect(reverse("index"))
+    except Category.DoesNotExist:
         return render(request, "auctions/create.html", {
-            "categories": allCategories
+            "message": "Selected category does not exist.",
+            "categories": Category.objects.all()
         })
-    else:
-        title = request.POST.get("title")
-        description = request.POST.get("description")
-        imageUrl = request.POST.get("imageurl")
-        price = float(request.POST.get("price")) 
-        category = request.POST.get("category")
+    except Exception as e:
+        return render(request, "auctions/create.html", {
+            "message": f"Error saving listing: {e}",
+            "categories": Category.objects.all()
+        })
 
-        currentUser = request.user
-
-        bid=Bid(bid=float(price),user=currentUser)
-        bid.save()
-        # Creating a new ad and catching errors
-        try:
-            categoryData = Category.objects.get(categoryName=category)
-        except Category.DoesNotExist:
-            return render(request, "auctions/create.html", {
-                "message": "Selected category does not exist.",
-                "categories": Category.objects.all()
-            })
-
-        # Creating a new ad and catching errors
-        try:
-            newListing = Listing(
-                title=title,
-                description=description,
-                imageUrl=imageUrl,
-                price=bid,
-                owner=currentUser,
-                category=categoryData,
-            )
-            newListing.save()
-            return HttpResponseRedirect(reverse("index"))
-        except Exception as e:
-            return render(request, "auctions/create.html", {
-                "message": f"Error saving listing: {e}",
-                "categories": Category.objects.all()
-            })
 def login_view(request):
     if request.method == "POST":
+        username = request.POST.get("username", "")
+        password = request.POST.get("password", "")
 
-        # Attempt to sign user in
-        username = request.POST["username"]
-        password = request.POST["password"]
         user = authenticate(request, username=username, password=password)
 
-        # Check if authentication successful
-        if user is not None:
+        if user:
             login(request, user)
             return HttpResponseRedirect(reverse("index"))
         else:
-            return render(request, "auctions/login.html", {
-                "message": "Invalid username and/or password."
-            })
-    else:
-        return render(request, "auctions/login.html")
+            return render(request, "auctions/login.html", {"message": "Invalid username and/or password."})
 
+    return render(request, "auctions/login.html")
 
 def logout_view(request):
     logout(request)
     return HttpResponseRedirect(reverse("index"))
 
-
 def register(request):
     if request.method == "POST":
-        username = request.POST["username"]
-        email = request.POST["email"]
+        username = request.POST.get("username", "")
+        email = request.POST.get("email", "")
+        password = request.POST.get("password", "")
+        confirmation = request.POST.get("confirmation", "")
 
-        # Ensure password matches confirmation
-        password = request.POST["password"]
-        confirmation = request.POST["confirmation"]
         if password != confirmation:
-            return render(request, "auctions/register.html", {
-                "message": "Passwords must match."
-            })
+            return render(request, "auctions/register.html", {"message": "Passwords must match."})
 
-        # Attempt to create new user
         try:
             user = User.objects.create_user(username, email, password)
             user.save()
+            login(request, user)
+            return HttpResponseRedirect(reverse("index"))
         except IntegrityError:
-            return render(request, "auctions/register.html", {
-                "message": "Username already taken."
-            })
-        login(request, user)
-        return HttpResponseRedirect(reverse("index"))
-    else:
-        return render(request, "auctions/register.html")
+            return render(request, "auctions/register.html", {"message": "Username already taken."})
+
+    return render(request, "auctions/register.html")

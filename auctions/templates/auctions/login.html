@@ -1,24 +1,56 @@
-{% extends "auctions/layout.html" %}
-
-{% block body %}
-
-    <h2>Login</h2>
-
-    {% if message %}
-        <div>{{ message }}</div>
-    {% endif %}
-
-    <form action="{% url 'login' %}" method="post">
-        {% csrf_token %}
-        <div class="form-group">
-            <input autofocus class="form-control" type="text" name="username" placeholder="Username">
+{% extends "auctions/layout.html" %} {% block body %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card shadow-lg">
+        <div class="card-header bg-primary text-white text-center">
+          <h2>Login</h2>
         </div>
-        <div class="form-group">
-            <input class="form-control" type="password" name="password" placeholder="Password">
+        <div class="card-body">
+          {% if message %}
+          <div class="alert alert-danger text-center" role="alert">
+            {{ message }}
+          </div>
+          {% endif %}
+
+          <form action="{% url 'login' %}" method="post">
+            {% csrf_token %}
+            <div class="form-group mb-3">
+              <label for="username">Username</label>
+              <input
+                autofocus
+                class="form-control"
+                type="text"
+                id="username"
+                name="username"
+                placeholder="Enter your username"
+              />
+            </div>
+            <div class="form-group mb-3">
+              <label for="password">Password</label>
+              <input
+                class="form-control"
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Enter your password"
+              />
+            </div>
+            <div class="d-grid">
+              <button class="btn btn-primary btn-block" type="submit">
+                Login
+              </button>
+            </div>
+          </form>
         </div>
-        <input class="btn btn-primary" type="submit" value="Login">
-    </form>
-
-    Don't have an account? <a href="{% url 'register' %}">Register here.</a>
-
+        <div class="card-footer text-center">
+          <p>
+            Don't have an account?
+            <a href="{% url 'register' %}">Register here</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

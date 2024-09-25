@@ -1,30 +1,76 @@
-{% extends "auctions/layout.html" %}
-
-{% block body %}
-
-    <h2>Register</h2>
-
-    {% if message %}
-        <div>{{ message }}</div>
-    {% endif %}
-
-    <form action="{% url 'register' %}" method="post">
-        {% csrf_token %}
-        <div class="form-group">
-            <input class="form-control" autofocus type="text" name="username" placeholder="Username">
+{% extends "auctions/layout.html" %} {% block body %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card shadow-lg">
+        <div class="card-header bg-success text-white text-center">
+          <h2>Register</h2>
         </div>
-        <div class="form-group">
-            <input class="form-control" type="email" name="email" placeholder="Email Address">
-        </div>
-        <div class="form-group">
-            <input class="form-control" type="password" name="password" placeholder="Password">
-        </div>
-        <div class="form-group">
-            <input class="form-control" type="password" name="confirmation" placeholder="Confirm Password">
-        </div>
-        <input class="btn btn-primary" type="submit" value="Register">
-    </form>
+        <div class="card-body">
+          {% if message %}
+          <div class="alert alert-danger text-center" role="alert">
+            {{ message }}
+          </div>
+          {% endif %}
 
-    Already have an account? <a href="{% url 'login' %}">Log In here.</a>
-
+          <form action="{% url 'register' %}" method="post">
+            {% csrf_token %}
+            <div class="form-group mb-3">
+              <label for="username">Username</label>
+              <input
+                class="form-control"
+                autofocus
+                type="text"
+                id="username"
+                name="username"
+                placeholder="Enter your username"
+              />
+            </div>
+            <div class="form-group mb-3">
+              <label for="email">Email Address</label>
+              <input
+                class="form-control"
+                type="email"
+                id="email"
+                name="email"
+                placeholder="Enter your email"
+              />
+            </div>
+            <div class="form-group mb-3">
+              <label for="password">Password</label>
+              <input
+                class="form-control"
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Enter your password"
+              />
+            </div>
+            <div class="form-group mb-3">
+              <label for="confirmation">Confirm Password</label>
+              <input
+                class="form-control"
+                type="password"
+                id="confirmation"
+                name="confirmation"
+                placeholder="Re-enter your password"
+              />
+            </div>
+            <div class="d-grid">
+              <button class="btn btn-success btn-block" type="submit">
+                Register
+              </button>
+            </div>
+          </form>
+        </div>
+        <div class="card-footer text-center">
+          <p>
+            Already have an account?
+            <a href="{% url 'login' %}">Log In here</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
